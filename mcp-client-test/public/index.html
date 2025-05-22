@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MCP Chat Client</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; padding: 0; background-color: #f4f4f4; display: flex; justify-content: center; align-items: center; height: 100vh; }
+        #chat-container { width: 80%; max-width: 600px; background-color: #fff; box-shadow: 0 0 10px rgba(0,0,0,0.1); border-radius: 8px; overflow: hidden; display: flex; flex-direction: column; height: 90vh; }
+        #chat-window { flex-grow: 1; padding: 20px; overflow-y: auto; border-bottom: 1px solid #ddd; }
+        .message { margin-bottom: 15px; padding: 10px; border-radius: 5px; }
+        .user-message { background-color: #dcf8c6; align-self: flex-end; text-align: right; }
+        .server-message { background-color: #f1f0f0; align-self: flex-start; }
+        #input-area { display: flex; padding: 10px; border-top: 1px solid #ddd;}
+        #message-input { flex-grow: 1; padding: 10px; border: 1px solid #ddd; border-radius: 5px; margin-right: 10px; }
+        button { padding: 10px 15px; background-color: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; }
+        button:hover { background-color: #0056b3; }
+        .tool-card { transition: all 0.3s ease; }
+        .tool-card:hover { transform: translateY(-2px); box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+        /* Add a nice header for the chat */
+        #chat-header { background-color: #007bff; color: white; padding: 15px; text-align: center; font-weight: bold; font-size: 1.2em; }
+    </style>
+</head>
+<body>
+    <div id="chat-container">
+        <div id="chat-header">MCP Pet Services Chat</div>
+        <div id="chat-window"></div>
+        <div id="input-area">
+            <input type="text" id="message-input" placeholder="Type your message...">
+            <button onclick="sendMessage()">Send</button>
+        </div>
+    </div>
+
+    <script>
+        const chatWindow = document.getElementById('chat-window');
+        const messageInput = document.getElementById('message-input');
+        let sessionId = null; // Remove session initialization from the frontend
+        let bearerToken = ''
+
+        async function sendMessage() {
+            const messageText = messageInput.value.trim();
+            if (!messageText) return;
+
+            appendMessage(messageText, 'user-message');
+            messageInput.value = '';
+
+            try {
+                const response = await fetch('/mcp', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${bearerToken}`
+                    },
+                    body: JSON.stringify({
+                        message: messageText
+                    })
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error ? errorData.error.message : `HTTP error! status: ${response.status}`);
+                }
+
+                const data = await response.json();
+
+                if (messageText.toLowerCase() === 'list tools' && data.result && data.result.tools) {
+                    appendMessage('📋 Available Tools:', 'server-message');
+                    const toolsContainer = document.createElement('div');
+                    toolsContainer.style.marginTop = '10px';
+                    
+                    data.result.tools.forEach(tool => {
+                        const toolCard = document.createElement('div');
+                        toolCard.className = 'tool-card';
+                        toolCard.style.border = '1px solid #ddd';
+                        toolCard.style.borderRadius = '8px';
+                        toolCard.style.padding = '15px';
+                        toolCard.style.marginBottom = '15px';
+                        toolCard.style.backgroundColor = '#f9f9f9';
+                        toolCard.style.boxShadow = '0 4px 6px rgba(0,0,0,0.1)';
+
+                        const toolName = document.createElement('h3');
+                        toolName.textContent = `🔧 ${tool.name}`;
+                        toolName.style.fontWeight = 'bold';
+                        toolName.style.marginBottom = '10px';
+                        toolName.style.color = '#007bff';
+
+                        const toolDesc = document.createElement('p');
+                        toolDesc.textContent = tool.description;
+                        toolDesc.style.fontSize = '1em';
+                        toolDesc.style.marginBottom = '10px';
+                        toolDesc.style.color = '#333';
+
+                        const paramsTitle = document.createElement('h4');
+                        if (tool.inputSchema && tool.inputSchema.properties) {
+                            paramsTitle.textContent = '📝 Parameters:';
+                            paramsTitle.style.fontWeight = 'bold';
+                            paramsTitle.style.fontSize = '1em';
+                            paramsTitle.style.marginTop = '10px';
+                            paramsTitle.style.marginBottom = '10px';
+
+                            const paramsList = document.createElement('ul');
+                            paramsList.style.margin = '0';
+                            paramsList.style.paddingLeft = '20px';
+
+                            Object.entries(tool.inputSchema.properties).forEach(([paramName, paramInfo]) => {
+                                const required = tool.inputSchema.required && tool.inputSchema.required.includes(paramName);
+                                const param = document.createElement('li');
+                                param.style.listStyleType = 'disc';
+                                param.style.fontSize = '0.95em';
+                                param.style.marginBottom = '5px';
+                                param.innerHTML = `<strong>${paramName}</strong>: ${paramInfo.description || ''}
+                                                  ${required ? ' <span style="color: #d9534f; font-size: 0.9em;">(Required)</span>' : ''}`;
+                                paramsList.appendChild(param);
+                            });
+
+                            toolCard.appendChild(toolName);
+                            toolCard.appendChild(toolDesc);
+                            toolCard.appendChild(paramsTitle);
+                            toolCard.appendChild(paramsList);
+                        } else {
+                            toolCard.appendChild(toolName);
+                            toolCard.appendChild(toolDesc);
+                        }
+
+                        toolsContainer.appendChild(toolCard);
+                    });
+                    
+                    const messageElement = document.createElement('div');
+                    messageElement.classList.add('message', 'server-message');
+                    messageElement.appendChild(toolsContainer);
+                    chatWindow.appendChild(messageElement);
+                    chatWindow.scrollTop = chatWindow.scrollHeight;
+                } else if (messageText.toLowerCase() === 'info' || messageText.toLowerCase() === 'book') {
+                    appendMessage(`Processing your request for '${messageText}'...`, 'server-message');
+                }
+
+                if (data.result) {
+                    if (typeof data.result === 'string') {
+                        appendMessage(data.result, 'server-message');
+                    } else {
+                        // Format JSON data into a readable structure
+                        const formattedResult = JSON.stringify(data.result, null, 2);
+                        const preElement = document.createElement('pre');
+                        preElement.style.backgroundColor = '#f9f9f9';
+                        preElement.style.padding = '10px';
+                        preElement.style.borderRadius = '5px';
+                        preElement.style.overflowX = 'auto';
+                        preElement.style.fontSize = '0.9em';
+                        preElement.style.color = '#333';
+                        preElement.textContent = formattedResult;
+
+                        const messageElement = document.createElement('div');
+                        messageElement.classList.add('message', 'server-message');
+                        messageElement.appendChild(preElement);
+                        chatWindow.appendChild(messageElement);
+                        chatWindow.scrollTop = chatWindow.scrollHeight;
+                    }
+                } else {
+                    appendMessage(JSON.stringify(data), 'server-message');
+                }
+
+            } catch (error) {
+                console.error('Error sending message:', error);
+                appendMessage(`Error: ${error.message}`, 'server-message');
+            }
+        }
+
+        function appendMessage(text, className) {
+            const messageElement = document.createElement('div');
+            messageElement.classList.add('message', className);
+            messageElement.textContent = text;
+            chatWindow.appendChild(messageElement);
+            chatWindow.scrollTop = chatWindow.scrollHeight;
+        }
+
+        messageInput.addEventListener('keypress', function(event) {
+            if (event.key === 'Enter') {
+                sendMessage();
+            }
+        });
+    </script>
+</body>
+</html>
