@@ -1,11 +1,11 @@
 # MCP Server and Client Demo
 
-This project demonstrates a Model Context Protocol (MCP) implementation with Express.js server and a React.js client.
+This project demonstrates a Model Context Protocol (MCP) implementation with an Express.js server and a React.js client.
 
 ## Project Structure
 
 - `src/`: Contains the MCP server implementation
-- `client/`: Contains the React-based MCP client
+- `mcp-client-test/`: Contains the React-based MCP client
 
 ## Setup
 
@@ -14,9 +14,15 @@ This project demonstrates a Model Context Protocol (MCP) implementation with Exp
 npm install
 ```
 
-2. Install client dependencies
+2. Install server dependencies
 ```bash
-cd client
+cd src
+npm install
+```
+
+3. Install client dependencies
+```bash
+cd mcp-client-test
 npm install
 ```
 
@@ -35,13 +41,15 @@ This will start:
 ### Running Server Only
 
 ```bash
+cd src
 npm start
 ```
 
 ### Running Client Only
 
 ```bash
-npm run client
+cd mcp-client-test
+npm start
 ```
 
 ## Features
@@ -51,8 +59,8 @@ npm run client
 - Authentication using @asgardeo/mcp-express
 - Session management
 - Two MCP tools implemented:
-  - get_pet_vaccination_info
-  - book_vet_appointment
+  - `get_pet_vaccination_info`
+  - `book_vet_appointment`
 
 ### Client
 - React-based chat interface
@@ -63,14 +71,14 @@ npm run client
 
 ## Environment Variables
 
-Create a `.env` file in the root directory with:
+Create a `.env` file in the `src` directory with:
 
 ```
 BASE_URL=http://localhost:3000
 PORT=3000
 ```
 
-And a `.env` file in the client directory with:
+And a `.env` file in the `mcp-client-test` directory with:
 
 ```
 REACT_APP_MCP_SERVER_URL=http://localhost:3000/mcp
